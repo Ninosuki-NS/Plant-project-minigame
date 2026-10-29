@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌱 CYBER-PLANT IoT :: MINI GAME DASHBOARD</title>
+    <!-- Paho MQTT WS Client Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d0f18;
+            --panel-bg: rgba(22, 27, 46, 0.85);
+            --neon-green: #00ff88;
+            --neon-pink: #ff0055;
+            --neon-blue: #00e5ff;
+            --text-color: #e0e6ed;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% 10%, rgba(0, 255, 136, 0.1), transparent 40%),
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .dashboard {
+            background: var(--panel-bg);
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2), inset 0 0 15px rgba(0, 255, 136, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .header-title {
+            color: var(--neon-green);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-size: 24px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .server-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 25px;
+        }
+
+        /* Circular Gauge Display */
+        .gauge-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px auto;
+        }
+
+        .gauge-svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .gauge-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-width: 12;
+        }
+
+        .gauge-progress {
+            fill: none;
+            stroke: var(--neon-green);
+            stroke-width: 12;
+            stroke-dasharray: 502;
+            stroke-dashoffset: 502;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;
+            filter: drop-shadow(0 0 8px var(--neon-green));
+        }
+
+        .gauge-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .gauge-percent {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--text-color);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .gauge-label {
+            font-size: 12px;
+            color: #8a99ad;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--neon-blue);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 8px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-on {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-off {
+            background: var(--neon-pink);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4);
+        }
+
+        .btn-auto {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+
+        .btn-sheets {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            box-sizing: border-box;
+            transition: 0.2s;
+        }
+
+        .btn-sheets:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header-title">🌱 CYBER-PLANT IoT</div>
+        <div class="server-badge">STATUS: <span id="mqtt_status" style="color: var(--neon-pink);">CONNECTING... 🔴</span></div>
+
+        <!-- Gauge Progress Bar -->
+        <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 180 180">
+                <circle class="gauge-bg" cx="90" cy="90" r="80"></circle>
+                <circle id="gauge_bar" class="gauge-progress" cx="90" cy="90" r="80"></circle>
+            </svg>
+            <div class="gauge-inner">
+                <div class="gauge-percent"><span id="soil_percent">0</span>%</div>
+                <div class="gauge-label">SOIL MOISTURE</div>
+            </div>
+        </div>
+
+        <!-- Realtime Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="gauge-label">RAW ADC VALUE</div>
+                <div class="stat-value" id="soil_raw">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="gauge-label">PUMP STATUS</div>
+                <div class="stat-value" id="pump_status" style="color: var(--neon-green);">WAITING...</div>
+            </div>
+        </div>
+
+        <!-- Control Buttons (3 ปุ่ม) -->
+        <div class="btn-group">
+            <button class="btn btn-on" onclick="sendPumpCommand('ON')">▶ เปิดปั๊ม</button>
+            <button class="btn btn-off" onclick="sendPumpCommand('OFF')">⏹ ปิดปั๊ม</button>
+            <button class="btn btn-auto" onclick="sendPumpCommand('AUTO')">🔄 AUTO</button>
+        </div>
+
+        <!-- Google Sheets Quick-link -->
+        <a href="https://docs.google.com/spreadsheets/d/1UBHV7cH2erSNwIXHFiit4RFEhObV_SFDPMT6yxDhFbE/edit?gid=854563306#gid=854563306" target="_blank" class="btn-sheets">
+            📊 ดูสถิติย้อนหลัง (Google Sheets)
+        </a>
+    </div>
+
+    <script>
+        // 1. MQTT Connection Settings
+        var client = new Paho.MQTT.Client("broker.hivemq.com", 8884, "web_player_" + parseInt(Math.random() * 1000, 10));
+
+       client.connect({
+    useSSL: true, // 👈 เติมบรรทัดนี้เพื่อให้รองรับเว็บออนไลน์ HTTPS
+    onSuccess: function () {
+        document.getElementById("mqtt_status").innerHTML = "ONLINE 🟢";
+        document.getElementById("mqtt_status").style.color = "var(--neon-green)";
+
+        // Subscribe to topics
+        client.subscribe("nino/plant/soil");
+        client.subscribe("nino/plant/soil/percent");
+        client.subscribe("nino/pump/stat");
+    }
+});
+
+        client.onMessageArrived = function (message) {
+            var topic = message.destinationName;
+            var payload = message.payloadString;
+
+            if (topic === "nino/plant/soil/percent") {
+                var percent = parseInt(payload) || 0;
+                document.getElementById("soil_percent").innerHTML = percent;
+                
+                // Update SVG Circle Gauge (502 = 2 * PI * r)
+                var circle = document.getElementById("gauge_bar");
+                var offset = 502 - (502 * percent / 100);
+                circle.style.strokeDashoffset = offset;
+            } 
+            else if (topic === "nino/plant/soil") {
+                document.getElementById("soil_raw").innerHTML = payload;
+            } 
+            else if (topic === "nino/pump/stat") {
+                document.getElementById("pump_status").innerHTML = payload;
+            }
+        };
+
+        client.connect({
+            onSuccess: function () {
+                document.getElementById("mqtt_status").innerHTML = "ONLINE 🟢";
+                document.getElementById("mqtt_status").style.color = "var(--neon-green)";
+
+                // Subscribe to topics
+                client.subscribe("nino/plant/soil");
+                client.subscribe("nino/plant/soil/percent");
+                client.subscribe("nino/pump/stat");
+            }
+        });
+
+        // 2. Control Pump via MQTT
+        function sendPumpCommand(cmd) {
+            var message = new Paho.MQTT.Message(cmd);
+            message.destinationName = "nino/plant/pump/control";
+            client.send(message);
+        }
+    </script>
+</body>
+</html>
